@@ -6,6 +6,7 @@ setup(
     license='GNU GENERAL PUBLIC LICENSE Version 3',
     packages=find_packages(),
     description='SDK that helps to build AWS - CloudFormation infrastructure projects.',
+    include_package_data=True,
     install_requires=[
         'boto3',
         'botocore'
