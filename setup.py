@@ -9,7 +9,9 @@ setup(
     include_package_data=True,
     install_requires=[
         'boto3',
-        'botocore'
+        'botocore',
+        'troposphere',
+        'cfnresponse'
     ],
     author='Laimonas Sutkus',
     author_email='laimonas.sutkus@gmail.com',
