@@ -1,18 +1,18 @@
 from typing import List
-from troposphere.ec2 import SecurityGroup, Subnet, VPC
+from troposphere.ec2 import SecurityGroup
 from troposphere.elasticloadbalancingv2 import TargetGroup, LoadBalancer, Listener, Action
 from troposphere import Template, Ref
 
 
 class Loadbalancing:
-    def __init__(self, prefix: str, lb_security_groups: List[SecurityGroup], subnets: List[Subnet], vpc: VPC):
+    def __init__(self, prefix: str, lb_security_groups: List[SecurityGroup], subnet_ids: List[str], vpc_id: str):
         """
         Constructor.
 
         :param prefix: A prefix for resource names.
         :param lb_security_groups: Security groups to attach to a loadbalancer.
-        :param subnets: Subnets in which loadbalancer can exist.
-        :param vpc: Virtual private cloud in which target groups and a loadbalancer would exist.
+        :param subnet_ids: Subnets in which loadbalancer can exist.
+        :param vpc_id: Virtual private cloud id in which target groups and a loadbalancer exist.
         """
         self.target_group_port_http = 80
         # If your service's task definition uses the awsvpc network mode
@@ -27,7 +27,7 @@ class Loadbalancing:
             Name=prefix + 'FargateEcsTargetGroup1',
             Port=self.target_group_port_http,
             Protocol='HTTP',
-            VpcId=Ref(vpc),
+            VpcId=vpc_id,
             TargetType=self.target_type
         )
 
@@ -37,14 +37,14 @@ class Loadbalancing:
             Name=prefix + 'FargateEcsTargetGroup2',
             Port=self.target_group_port_http,
             Protocol='HTTP',
-            VpcId=Ref(vpc),
+            VpcId=vpc_id,
             TargetType=self.target_type
         )
 
         self.load_balancer = LoadBalancer(
             prefix + 'FargateEcsLoadBalancer',
-            Subnets=[Ref(subnet) for subnet in subnets],
-            SecurityGroups=[Ref(lb_security_groups)],
+            Subnets=[subnet_ids],
+            SecurityGroups=[Ref(group) for group in lb_security_groups],
             Name=prefix + 'FargateEcsLoadBalancer',
             Scheme='internet-facing',
         )

@@ -1,5 +1,6 @@
 from troposphere.awslambda import Function
-from troposphere.codecommit import Repository
+from troposphere.codecommit import Repository as GitRepository
+from troposphere.ecr import Repository as EcrRepository
 from troposphere.codedeploy import Application
 from troposphere.elasticloadbalancingv2 import TargetGroup, Listener
 from troposphere.iam import Role, Policy
@@ -20,9 +21,8 @@ class EcsPipeline:
             ecs_service_name: str,
             ecs_cluster_name: str,
             artifact_builds_s3: str,
-            ecr_repository: str
     ):
-        self.role = Role(
+        self.deployment_group_role = Role(
             'WordpressPipelineExecutionRole',
             Path='/',
             Policies=[Policy(
@@ -30,49 +30,51 @@ class EcsPipeline:
                 PolicyDocument={
                     'Version': '2012-10-17',
                     'Statement': [{
-                        'Effect': 'Allow',
-                        'Action': 'codepipeline:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'codecommit:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 's3:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'codebuild:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'codedeploy:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'ecs:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'ecr:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'ec2:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'iam:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'elasticloadbalancing:*',
-                        'Resource': '*'
-                    }, {
-                        'Effect': 'Allow',
-                        'Action': 'logs:*',
-                        'Resource': '*'
+                        'Action': [
+                            "ecs:DescribeServices",
+                            "ecs:CreateTaskSet",
+                            "ecs:UpdateServicePrimaryTaskSet",
+                            "ecs:DeleteTaskSet",
+                            "elasticloadbalancing:DescribeTargetGroups",
+                            "elasticloadbalancing:DescribeListeners",
+                            "elasticloadbalancing:ModifyListener",
+                            "elasticloadbalancing:DescribeRules",
+                            "elasticloadbalancing:ModifyRule",
+                            "lambda:InvokeFunction",
+                            "cloudwatch:DescribeAlarms",
+                            "sns:Publish",
+                            "s3:GetObject",
+                            "s3:GetObjectMetadata",
+                            "s3:GetObjectVersion"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    }]
+                })],
+            AssumeRolePolicyDocument={'Version': '2012-10-17', 'Statement': [
+                {
+                    'Action': ['sts:AssumeRole'],
+                    'Effect': 'Allow',
+                    'Principal': {
+                        'Service': [
+                            'ecs-tasks.amazonaws.com',
+                        ]
+                    }
+                }
+            ]},
+        )
+
+        self.pipeline_role = Role(
+            prefix + 'FargateEcsPipelineExecutionRole',
+            Path='/',
+            Policies=[Policy(
+                PolicyName='WordpressPipelineExecutionPolicy',
+                PolicyDocument={
+                    'Version': '2012-10-17',
+                    'Statement': [{
+                        "Action": ["logs:*"],
+                        "Resource": "arn:aws:logs:*:*:*",
+                        "Effect": "Allow"
                     }]
                 })],
             AssumeRolePolicyDocument={'Version': '2012-10-17', 'Statement': [
@@ -82,25 +84,22 @@ class EcsPipeline:
                     'Principal': {
                         'Service': [
                             'codepipeline.amazonaws.com',
-                            'codecommit.amazonaws.com',
-                            'codebuild.amazonaws.com',
-                            'codedeploy.amazonaws.com',
-                            'ecs-tasks.amazonaws.com',
-                            'iam.amazonaws.com',
-                            'ecs.amazonaws.com',
-                            's3.amazonaws.com',
-                            'ec2.amazonaws.com'
                         ]
                     }
                 }
             ]},
         )
 
-        self.git_repository = Repository(
+        self.git_repository = GitRepository(
             prefix + 'FargateEcsGitRepository',
             RepositoryDescription=(
                 'Repository containing appspec and taskdef files for ecs code-deploy blue/green deployments.'
             ),
+            RepositoryName=prefix.lower()
+        )
+
+        self.ecr_repository = EcrRepository(
+            prefix + 'FargateEcsEcrRepository',
             RepositoryName=prefix.lower()
         )
 
@@ -116,7 +115,7 @@ class EcsPipeline:
             ApplicationName=self.application.ApplicationName,
             DeploymentGroupName=prefix + 'FargateEcsDeploymentGroup',
             DeploymentConfigName='CodeDeployDefault.ECSAllAtOnce',
-            ServiceRoleArn=GetAtt(self.role, 'Arn'),
+            ServiceRoleArn=GetAtt(self.deployment_group_role, 'Arn'),
             AutoRollbackConfiguration={
                 'enabled': True,
                 'events': ['DEPLOYMENT_FAILURE', 'DEPLOYMENT_STOP_ON_ALARM', 'DEPLOYMENT_STOP_ON_REQUEST']
@@ -173,7 +172,7 @@ class EcsPipeline:
                 Type='S3'
             ),
             Name=prefix + 'FargateEcsPipeline',
-            RoleArn=GetAtt(self.role, 'Arn'),
+            RoleArn=GetAtt(self.pipeline_role, 'Arn'),
             Stages=[
                 Stages(
                     Name='SourceStage',
@@ -192,7 +191,7 @@ class EcsPipeline:
                                 )
                             ],
                             Configuration={
-                                'RepositoryName': ecr_repository
+                                'RepositoryName': self.ecr_repository.RepositoryName
                             },
                             RunOrder='1'
                         ),
@@ -258,7 +257,9 @@ class EcsPipeline:
 
     def add(self, template: Template):
         template.add_resource(self.git_repository)
+        template.add_resource(self.ecr_repository)
+        template.add_resource(self.deployment_group_role)
+        template.add_resource(self.pipeline_role)
         template.add_resource(self.application)
-        template.add_resource(self.role)
-        template.add_resource(self.pipeline)
         template.add_resource(self.deployment_group)
+        template.add_resource(self.pipeline)

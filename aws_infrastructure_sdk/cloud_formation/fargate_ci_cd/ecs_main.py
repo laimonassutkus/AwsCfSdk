@@ -19,16 +19,11 @@ class Ecs:
             custom_ecs_service_lambda_function: Function,
             target_group: TargetGroup,
             security_groups: List[SecurityGroup],
-            subnets: List[Subnet],
+            subnet_ids: List[str],
             depends_on_loadbalancers: List[LoadBalancer] = [],
             depends_on_target_groups: List[TargetGroup] = [],
             depends_on_listeners: List[Listener] = []
     ) -> None:
-        self.wordpress_repository = Repository(
-            prefix + 'EcrRepository',
-            RepositoryName=prefix.lower()
-        )
-
         self.cluster = Cluster(
             prefix + 'FargateEcsCluster',
             ClusterName=prefix + 'FargateEcsCluster'
@@ -40,7 +35,6 @@ class Ecs:
             Cpu=cpu,
             Memory=ram,
             NetworkMode='awsvpc',
-            ContainerDefinitions=[],
             Family=prefix.lower()
         )
 
@@ -61,7 +55,7 @@ class Ecs:
             LaunchType='FARGATE',
             NetworkConfiguration={
                 'awsvpcConfiguration': {
-                    'subnets': [Ref(sub) for sub in subnets],
+                    'subnets': subnet_ids,
                     'securityGroups': [Ref(sub) for sub in security_groups],
                     'assignPublicIp': 'ENABLED'
                 }
@@ -78,7 +72,6 @@ class Ecs:
         )
 
     def add(self, template: Template):
-        template.add_resource(self.wordpress_repository)
         template.add_resource(self.cluster)
         template.add_resource(self.task)
         template.add_resource(self.service)

@@ -1,4 +1,3 @@
-from typing import List
 from troposphere.applicationautoscaling import ScalableTarget, ScalingPolicy, TargetTrackingScalingPolicyConfiguration
 from troposphere.applicationautoscaling import PredefinedMetricSpecification
 from troposphere.iam import Role, Policy
@@ -6,7 +5,7 @@ from troposphere import Template, Ref, GetAtt, Join
 
 
 class Autoscaling:
-    def __init__(self, prefix: str, service_name: str, cluster_name: str, depends_on: List[str] = []):
+    def __init__(self, prefix: str, cluster_name: str, service_name: str, service_resource_name: str, ):
         self.autoscaling_role = Role(
             prefix + 'FargateEcsAutoscalingRole',
             Path='/',
@@ -38,7 +37,7 @@ class Autoscaling:
             MinCapacity=1,
             MaxCapacity=5,
             ServiceNamespace='ecs',
-            DependsOn=depends_on,
+            DependsOn=service_resource_name,
 
             # The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that
             # allows Application Auto Scaling to modify the scalable target on your behalf.

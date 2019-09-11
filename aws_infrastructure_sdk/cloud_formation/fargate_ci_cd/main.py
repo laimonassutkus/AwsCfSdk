@@ -1,159 +1,119 @@
-from troposphere.ec2 import SecurityGroup
-from troposphere.iam import Role, Policy
-from troposphere import Template, Ref
-from troposphere.ecr import Repository
-from troposphere.ecs import *
+from typing import List
+from troposphere import Template
+from aws_infrastructure_sdk.cloud_formation.custom_resources.service.deployment_group import DeploymentGroupService
+from aws_infrastructure_sdk.cloud_formation.custom_resources.service.ecs_service import EcsServiceService
+from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_autoscaling import Autoscaling
+from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_loadbalancer import Loadbalancing
+from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_main import Ecs
+from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_pipeline import EcsPipeline
+from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_sg import SecurityGroups
 
 
-class WordPressFormation:
-    __instance = None
+class ComputeParams:
+    def __init__(self, cpu: str, ram: str):
+        self.cpu = cpu
+        self.ram = ram
 
-    def __new__(cls):
-        if cls.__instance is None:
-            cls.__instance = object.__new__(cls)
 
-            cls.wordpress_repository = Repository(
-                'WordpressEcrRepository',
-                RepositoryName='wordpress'
-            )
+class ContainerParams:
+    def __init__(self, container_name: str, container_port: int):
+        self.container_name = container_name
+        self.container_port = container_port
 
-            cls.wordpress_cluster = Cluster(
-                'WordpressCluster',
-                ClusterName='WordpressCluster'
-            )
 
-            # Create a database service/task in a wordpress cluster.
-            cls.wordpress_database_formation = WordPressDatabaseFormation(cls.wordpress_cluster)
+class VpcParams:
+    def __init__(self, vpc_id: str, lb_subnet_ids: List[str], ecs_service_subnet_ids: List[str]):
+        self.vpc_id = vpc_id
+        self.lb_subnet_ids = lb_subnet_ids
+        self.ecs_service_subnet_ids = ecs_service_subnet_ids
 
-            cls.wordpress_container = ContainerDefinition(
-                Name='WordpressContainer',
-                Image='nginx:latest',
-                Environment=[
-                    Environment(Name='WORDPRESS_DB_HOST', Value='wpdb:3306'),
-                    Environment(Name='WORDPRESS_DB_USER', Value='wordpressuser'),
-                    Environment(Name='WORDPRESS_DB_PASSWORD', Value='wordpressuserpassword'),
-                    Environment(Name='WORDPRESS_DB_NAME', Value='wpdb'),
-                ],
-                PortMappings=[
-                    PortMapping(
-                        ContainerPort=80
-                    )
-                ]
-            )
 
-            # Automatically load-balance the wordpress container.
-            cls.wordpress_loadbalancer_formation = WordPressLoadBalancerFormation()
+class PortsParams:
+    def __init__(self, ecs_service_open_ports: List[int], load_balancer_open_ports: List[int]):
+        self.ecs_service_open_ports = ecs_service_open_ports
+        self.load_balancer_open_ports = load_balancer_open_ports
 
-            cls.wordpress_task = TaskDefinition(
-                'WordpressTaskDefinition',
-                RequiresCompatibilities=['FARGATE', 'EC2'],
-                Cpu='256',
-                Memory='512',
-                NetworkMode='awsvpc',
-                ContainerDefinitions=[
-                    cls.wordpress_container
-                ],
-                Family='wordpress'
-            )
 
-            cls.security_group = SecurityGroup(
-                "WordPressServiceSecurityGroup",
-                SecurityGroupIngress=[{
-                    "ToPort": str(-1),
-                    "FromPort": str(-1),
-                    "IpProtocol": '-1',
-                    "CidrIp": '0.0.0.0/0'
-                }],
-                SecurityGroupEgress=[{
-                    "ToPort": str(-1),
-                    "FromPort": str(-1),
-                    "IpProtocol": '-1',
-                    "CidrIp": '0.0.0.0/0'
-                }],
-                VpcId=Ref(VpcFormation().vpc),
-                GroupDescription='A security group for wordpress ecs service.'
-            )
+class S3Params:
+    def __init__(self, custom_resources_bucket: str, artifact_builds_bucket: str):
+        self.custom_resources_bucket = custom_resources_bucket
+        self.artifact_builds_bucket = artifact_builds_bucket
 
-            cls.wordpress_service_role = Role(
-                'WordpressEcsServicenRole',
-                Path='/',
-                Policies=[Policy(
-                    PolicyName='WordpressEcsServicePolicy',
-                    PolicyDocument={
-                        'Version': '2012-10-17',
-                        'Statement': [{
-                            'Effect': 'Allow',
-                            'Action': 'ecs:*',
-                            'Resource': '*'
-                        }, {
-                            'Effect': 'Allow',
-                            'Action': 'logs:*',
-                            'Resource': '*'
-                        }]
-                    })],
-                AssumeRolePolicyDocument={'Version': '2012-10-17', 'Statement': [
-                    {
-                        'Action': ['sts:AssumeRole'],
-                        'Effect': 'Allow',
-                        'Principal': {
-                            'Service': [
-                                'ecs.amazonaws.com',
-                            ]
-                        }
-                    }
-                ]},
-            )
 
-            cls.wordpress_service = EcsServiceService(
-                Cluster=Ref(cls.wordpress_cluster),
-                ServiceName='WordpressService',
-                TaskDefinition=Ref(cls.wordpress_task),
-                LoadBalancers=[
-                    {
-                        'targetGroupArn': Ref(cls.wordpress_loadbalancer_formation.target_group_1_http),
-                        'containerName': cls.wordpress_container.Name,
-                        'containerPort': 80
-                    },
-                ],
-                DesiredCount=1,
-                LaunchType='FARGATE',
-                NetworkConfiguration={
-                    'awsvpcConfiguration': {
-                        'subnets': [Ref(sub) for sub in VpcFormation().public_subnets],
-                        'securityGroups': [Ref(cls.security_group)],
-                        'assignPublicIp': 'ENABLED'
-                    }
-                },
-                DeploymentController={
-                    'type': 'CODE_DEPLOY'
-                },
-                DependsOn=[
-                    # Target groups must have an associated load balancer before creating an ecs service.
-                    cls.wordpress_loadbalancer_formation.load_balancer.title,
-                    cls.wordpress_loadbalancer_formation.listener_http_1.title,
-                    cls.wordpress_loadbalancer_formation.listener_http_2.title
-                ],
-            )
+class Main:
+    def __init__(
+            self,
+            prefix: str,
+            region: str,
+            aws_profile_name: str,
+            compute_params: ComputeParams,
+            container_params: ContainerParams,
+            vpc_params: VpcParams,
+            ports_params: PortsParams,
+            s3_params: S3Params
+    ):
+        custom_resource_backend_args = [s3_params.custom_resources_bucket, region, aws_profile_name]
+        custom_ecs_service_resource_backend = EcsServiceService(*custom_resource_backend_args)
+        custom_deployment_group_resource_backend = DeploymentGroupService(*custom_resource_backend_args)
 
-            # Create a wordpress service auto-scaling.
-            cls.wordpress_autoscaling_formation = WordPressAutoscalingFormation(
-                service_name='WordpressService',
-                cluster_name='WordpressCluster',
-                # Autoscaling can not be created until an ecs service is created.
-                depends_on=[cls.wordpress_service.custom_resource().title]
-            )
+        self.security_groups = SecurityGroups(
+            prefix=prefix,
+            ecs_service_open_ports=ports_params.ecs_service_open_ports,
+            load_balancer_open_ports=ports_params.load_balancer_open_ports,
+            vpc_id=vpc_params.vpc_id
+        )
 
-        return cls.__instance
+        self.load_balancing = Loadbalancing(
+            prefix=prefix,
+            subnet_ids=vpc_params.lb_subnet_ids,
+            lb_security_groups=[self.security_groups.lb_security_group],
+            vpc_id=vpc_params.vpc_id
+        )
+
+        self.ecs = Ecs(
+            prefix=prefix,
+            cpu=compute_params.cpu,
+            ram=compute_params.ram,
+            container_name=container_params.container_name,
+            container_port=container_params.container_port,
+            custom_ecs_service_lambda_function=custom_ecs_service_resource_backend.function(),
+            target_group=self.load_balancing.target_group_1_http,
+            security_groups=[self.security_groups.ecs_security_group],
+            subnet_ids=vpc_params.ecs_service_subnet_ids,
+            depends_on_loadbalancers=[self.load_balancing.load_balancer],
+            depends_on_target_groups=[
+                self.load_balancing.target_group_1_http,
+                self.load_balancing.target_group_2_http
+            ],
+            depends_on_listeners=[
+                self.load_balancing.listener_http_1,
+                self.load_balancing.listener_http_2
+            ]
+        )
+
+        self.autoscaling = Autoscaling(
+            prefix=prefix,
+            service_name=self.ecs.service.ServiceName,
+            cluster_name=self.ecs.cluster.ClusterName,
+            service_resource_name=self.ecs.service.title
+        )
+
+        self.pipeline = EcsPipeline(
+            prefix=prefix,
+            custom_deployment_group_lambda_function=custom_deployment_group_resource_backend.function(),
+            main_target_group=self.load_balancing.target_group_1_http,
+            deployments_target_group=self.load_balancing.target_group_2_http,
+            main_listener=self.load_balancing.listener_http_1,
+            deployments_listener=self.load_balancing.listener_http_2,
+            ecs_service_name=self.ecs.service.ServiceName,
+            ecs_cluster_name=self.ecs.cluster.ClusterName,
+            artifact_builds_s3=s3_params.artifact_builds_bucket,
+        )
+
 
     def add(self, template: Template):
-        template.add_resource(self.security_group)
-        template.add_resource(self.wordpress_repository)
-        template.add_resource(self.wordpress_cluster)
-        template.add_resource(self.wordpress_task)
-        template.add_resource(self.wordpress_service_role)
-
-        self.wordpress_autoscaling_formation.add(template)
-        self.wordpress_loadbalancer_formation.add(template)
-        self.wordpress_database_formation.add(template)
-
-        self.wordpress_service.attach(template)
+        self.security_groups.add(template)
+        self.load_balancing.add(template)
+        self.ecs.add(template)
+        self.autoscaling.add(template)
+        self.pipeline.add(template)
