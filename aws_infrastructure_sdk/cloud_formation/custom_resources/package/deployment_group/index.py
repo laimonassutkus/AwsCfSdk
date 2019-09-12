@@ -7,8 +7,8 @@ import logging
 from botocore.exceptions import ClientError
 
 try:
-    from mha_infrastructure.cloud_formation.custom.package.deployment_group.fixer import Fixer
-    from mha_infrastructure.cloud_formation.custom.package.deployment_group.group import Group
+    from aws_infrastructure_sdk.cloud_formation.custom_resources.package.deployment_group.fixer import Fixer
+    from aws_infrastructure_sdk.cloud_formation.custom_resources.package.deployment_group.group import Group
 except ImportError:
     # Lambda specific import.
     # noinspection PyUnresolvedReferences

@@ -4,7 +4,7 @@ import logging
 
 from typing import Dict, Any
 from aws_infrastructure_sdk.bash.command import BashCommand
-from aws_infrastructure_sdk.cloud_formation.api_gateway_describer import ApiGatewayDescriber
+from aws_infrastructure_sdk.cloud_formation.stack.api_gateway_describer import ApiGatewayDescriber
 from aws_infrastructure_sdk.git.git_clone import GitClone
 from aws_infrastructure_sdk.lambdas.env_updater import LambdaEnvUpdater
 from aws_infrastructure_sdk.s3.s3_bucket_deleter import S3BucketDeleter

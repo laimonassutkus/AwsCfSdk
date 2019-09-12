@@ -37,7 +37,7 @@ class CognitoClientSecretService(AbstractCustomService):
                         "Resource": "arn:aws:logs:*:*:*",
                         "Effect": "Allow"
                     }, {
-                        "Action": ["cognito-idp:describe-user-pool-client"],
+                        "Action": ["cognito-idp:DescribeUserPoolClient"],
                         "Resource": "*",
                         "Effect": "Allow"
                     }]

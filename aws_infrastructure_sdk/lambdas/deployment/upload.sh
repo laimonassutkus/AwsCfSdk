@@ -3,16 +3,16 @@
 # This script uploads an AWS Lambda deployment package to an
 # S3 bucket and updates a Lambda function.
 
+# The name of the AWS Lambda function which is going to be updated with the new build.
 LAMBDA_NAME=$1; shift;
+# An AWS S3 bucket in which the new build is going to be uploaded.
 S3_BUCKET=$1; shift;
+# A profile name by which credentials should be found on this machine.
 AWS_PROFILE_NAME=$1; shift;
+# An AWS region in which an S3 bucket and the AWS Lambda function exists.
 AWS_REGION=$1; shift;
-
-# This is the default path where lambda build are made.
-# These two exact lines are specified in the build.sh script.
-# Make sure they are synchronized.
-ROOT_PATH="/tmp/aws-infrastructure-sdk/lambda/deployment"
-BUILD_PATH=${ROOT_PATH}"/package.zip"
+# A full path to a build file (e.g. /tmp/my-build.zip).
+BUILD_PATH=$1; shift;
 
 set -e
 

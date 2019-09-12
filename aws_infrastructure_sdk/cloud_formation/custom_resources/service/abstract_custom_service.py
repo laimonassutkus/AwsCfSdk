@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from aws_infrastructure_sdk.lambdas.deployment.deployment_package import DeploymentPackage
-from troposphere import GetAtt
+from troposphere import GetAtt, Template
 from troposphere.awslambda import Function, Code
 from troposphere.iam import Role
 
@@ -46,15 +45,6 @@ class AbstractCustomService(ABC):
             Description=self.lambda_description
         )
 
-    def __deploy_package(self):
-        assert self.lambda_name
-        assert self.src
-
-        DeploymentPackage(
-            environment='none',
-            project_src_path=self.src,
-            lambda_name=self.lambda_name,
-            s3_upload_bucket=self.cf_custom_resources_bucket,
-            s3_bucket_region=self.region,
-            aws_profile=self.aws_profile_name,
-        ).deploy()
+    def add(self, template: Template):
+        template.add_resource(self.function())
+        template.add_resource(self.role())

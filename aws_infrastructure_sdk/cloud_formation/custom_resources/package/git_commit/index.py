@@ -7,14 +7,14 @@ import logging
 from botocore.exceptions import ClientError
 
 try:
-    from aws_infrastructure_sdk.cloud_formation.custom_resources.package.ecs_service.fixer import Fixer
-    from aws_infrastructure_sdk.cloud_formation.custom_resources.package.ecs_service.service import Service
+    from aws_infrastructure_sdk.cloud_formation.custom_resources.package.git_commit.fixer import Fixer
+    from aws_infrastructure_sdk.cloud_formation.custom_resources.package.git_commit.commit import Commit
 except ImportError:
     # Lambda specific import.
     # noinspection PyUnresolvedReferences
-    from fixer import Fixer
+    from commit import Commit
     # noinspection PyUnresolvedReferences
-    from service import Service
+    from fixer import Fixer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -34,17 +34,7 @@ def __failed(event, context, data):
 
 
 def __create(**kwargs):
-    response = Service.create(**kwargs)
-    logger.info(json.dumps(response, default=lambda o: '<not serializable>'))
-
-
-def __update(**kwargs):
-    response = Service.update(**kwargs)
-    logger.info(json.dumps(response, default=lambda o: '<not serializable>'))
-
-
-def __delete(**kwargs):
-    response = Service.delete(**kwargs)
+    response = Commit.create(**kwargs)
     logger.info(json.dumps(response, default=lambda o: '<not serializable>'))
 
 
@@ -55,13 +45,13 @@ def __handle(event, context):
     kwargs = Fixer(kwargs).fix().get()
 
     if event['RequestType'] == 'Delete':
-        return __delete(**kwargs)
+        return
 
     if event['RequestType'] == 'Create':
         return __create(**kwargs)
 
     if event['RequestType'] == 'Update':
-        return __update(**kwargs)
+        return
 
     raise KeyError('Unsupported request type! Type: {}'.format(event['RequestType']))
 

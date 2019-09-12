@@ -38,9 +38,10 @@ class DeploymentGroupService(AbstractCustomService):
                         "Effect": "Allow"
                     }, {
                         "Action": [
-                            "codedeploy:create-deployment-group",
-                            "codedeploy:update-deployment-group",
-                            "codedeploy:delete-deployment-group",
+                            "codedeploy:CreateDeploymentGroup",
+                            "codedeploy:UpdateDeploymentGroup",
+                            "codedeploy:DeleteDeploymentGroup",
+                            "iam:PassRole"
                         ],
                         "Resource": "*",
                         "Effect": "Allow"

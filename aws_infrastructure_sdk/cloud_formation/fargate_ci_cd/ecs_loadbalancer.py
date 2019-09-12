@@ -43,7 +43,7 @@ class Loadbalancing:
 
         self.load_balancer = LoadBalancer(
             prefix + 'FargateEcsLoadBalancer',
-            Subnets=[subnet_ids],
+            Subnets=subnet_ids,
             SecurityGroups=[Ref(group) for group in lb_security_groups],
             Name=prefix + 'FargateEcsLoadBalancer',
             Scheme='internet-facing',

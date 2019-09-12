@@ -1,6 +1,7 @@
 import os
 import subprocess
 import logging
+import uuid
 
 from typing import Optional
 from aws_infrastructure_sdk.lambdas.deployment import lambda_deployment_dir
@@ -29,10 +30,15 @@ class DeploymentPackage:
         self.__lambda_name = lambda_name
         self.__dir = lambda_deployment_dir
 
+        self.__root = f'/tmp/aws-infrastructure-sdk/lambda/deployment/{str(uuid.uuid4())}'
+        self.__root_build = '{}/package.zip'.format(self.__root)
+
         self.__build_command = [
             os.path.join(self.__dir, 'build.sh'),
             self.__environment,
-            self.__project_src_path
+            self.__project_src_path,
+            self.__root,
+            self.__root_build
         ]
 
         upload_options = ['-s']
@@ -44,7 +50,8 @@ class DeploymentPackage:
             self.__lambda_name,
             self.__s3_upload_bucket,
             self.__aws_profile,
-            self.__s3_bucket_region
+            self.__s3_bucket_region,
+            self.__root_build
         ]
 
         self.__upload_command.extend(upload_options)

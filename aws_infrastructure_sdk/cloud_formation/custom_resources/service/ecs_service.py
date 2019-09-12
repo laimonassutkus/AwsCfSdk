@@ -38,9 +38,9 @@ class EcsServiceService(AbstractCustomService):
                         "Effect": "Allow"
                     }, {
                         "Action": [
-                            "ecs:create-service",
-                            "ecs:update-service",
-                            "ecs:delete-service",
+                            "ecs:CreateService",
+                            "ecs:UpdateService",
+                            "ecs:DeleteService",
                         ],
                         "Resource": "*",
                         "Effect": "Allow"

@@ -23,10 +23,10 @@ class EcsPipeline:
             artifact_builds_s3: str,
     ):
         self.deployment_group_role = Role(
-            'WordpressPipelineExecutionRole',
+            prefix + 'FargateEcsDeploymentGroupRole',
             Path='/',
             Policies=[Policy(
-                PolicyName='WordpressPipelineExecutionPolicy',
+                PolicyName=prefix + 'FargateEcsDeploymentGroupPolicy',
                 PolicyDocument={
                     'Version': '2012-10-17',
                     'Statement': [{
@@ -58,6 +58,7 @@ class EcsPipeline:
                     'Principal': {
                         'Service': [
                             'ecs-tasks.amazonaws.com',
+                            'codedeploy.amazonaws.com',
                         ]
                     }
                 }
@@ -65,16 +66,56 @@ class EcsPipeline:
         )
 
         self.pipeline_role = Role(
-            prefix + 'FargateEcsPipelineExecutionRole',
+            prefix + 'FargateEcsPipelineRole',
             Path='/',
             Policies=[Policy(
-                PolicyName='WordpressPipelineExecutionPolicy',
+                PolicyName=prefix + 'FargateEcsPipelinePolicy',
                 PolicyDocument={
                     'Version': '2012-10-17',
                     'Statement': [{
-                        "Action": ["logs:*"],
-                        "Resource": "arn:aws:logs:*:*:*",
-                        "Effect": "Allow"
+                        'Effect': 'Allow',
+                        'Action': 'codepipeline:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'codecommit:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 's3:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'codebuild:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'codedeploy:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'ecs:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'ecr:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'ec2:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'iam:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'elasticloadbalancing:*',
+                        'Resource': '*'
+                    }, {
+                        'Effect': 'Allow',
+                        'Action': 'logs:*',
+                        'Resource': '*'
                     }]
                 })],
             AssumeRolePolicyDocument={'Version': '2012-10-17', 'Statement': [
@@ -84,6 +125,14 @@ class EcsPipeline:
                     'Principal': {
                         'Service': [
                             'codepipeline.amazonaws.com',
+                            'codecommit.amazonaws.com',
+                            'codebuild.amazonaws.com',
+                            'codedeploy.amazonaws.com',
+                            'ecs-tasks.amazonaws.com',
+                            'iam.amazonaws.com',
+                            'ecs.amazonaws.com',
+                            's3.amazonaws.com',
+                            'ec2.amazonaws.com'
                         ]
                     }
                 }
@@ -225,7 +274,7 @@ class EcsPipeline:
                                 Category='Deploy',
                                 Owner='AWS',
                                 Version='1',
-                                Provider='CodeDeployToEcs'
+                                Provider='CodeDeployToECS'
                             ),
                             InputArtifacts=[
                                 InputArtifacts(
@@ -236,17 +285,17 @@ class EcsPipeline:
                                 )
                             ],
                             Configuration={
-                              "TaskDefinitionTemplateArtifact": "EcsConfig",
-                              "AppSpecTemplateArtifact": "EcsConfig",
+                                "TaskDefinitionTemplateArtifact": "EcsConfig",
+                                "AppSpecTemplateArtifact": "EcsConfig",
 
-                              "TaskDefinitionTemplatePath": "taskdef.json",
-                              "AppSpecTemplatePath": "appspec.yaml",
+                                "TaskDefinitionTemplatePath": "taskdef.json",
+                                "AppSpecTemplatePath": "appspec.yaml",
 
-                              "ApplicationName": self.application.ApplicationName,
-                              "DeploymentGroupName": self.deployment_group.DeploymentGroupName,
+                                "ApplicationName": self.application.ApplicationName,
+                                "DeploymentGroupName": self.deployment_group.DeploymentGroupName,
 
-                              "Image1ArtifactName": "EcsImage",
-                              "Image1ContainerName": "IMAGE1_NAME"
+                                "Image1ArtifactName": "EcsImage",
+                                "Image1ContainerName": "IMAGE1_NAME"
                             },
                             RunOrder='1'
                         )

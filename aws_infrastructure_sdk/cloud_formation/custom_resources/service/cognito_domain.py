@@ -39,9 +39,9 @@ class CognitoDomainService(AbstractCustomService):
                         "Effect": "Allow"
                     }, {
                         "Action": [
-                            "cognito-idp:create-user-pool-domain",
-                            "cognito-idp:update-user-pool-domain",
-                            "cognito-idp:delete-user-pool-domain",
+                            "cognito-idp:CreateUserPoolDomain",
+                            "cognito-idp:UpdateUserPoolDomain",
+                            "cognito-idp:DeleteUserPoolDomain",
                         ],
                         "Resource": "*",
                         "Effect": "Allow"

@@ -5,32 +5,31 @@ from aws_infrastructure_sdk.cloud_formation.custom_resources.service.abstract_cu
 from troposphere.iam import Role, Policy
 
 
-class CognitoFacebookService(AbstractCustomService):
+class GitCommitService(AbstractCustomService):
     def __init__(self, cf_custom_resources_bucket: str, region: str, aws_profile_name: str):
         super().__init__(cf_custom_resources_bucket, region, aws_profile_name)
 
         self.src = os.path.join(
             custom_root_dir,
             'package',
-            'cognito_facebook'
+            'git_commit'
         )
 
         self.lambda_handler = 'index.handler'
         self.lambda_runtime = 'python3.6'
         self.lambda_memory = 128
-        self.lambda_timeout = 60
-        self.lambda_name = 'CfCustomResourceCognitoFacebook'
+        self.lambda_timeout = 120
+        self.lambda_name = 'CfCustomResourceGitCommit'
         self.lambda_description = (
-            'Lambda function enabling AWS CloudFormation to create Facebook as an '
-            'identity provider for AWS Cognito user pool.'
+            'Lambda function enabling AWS CloudFormation to create commits to git repositories.'
         )
 
     def role(self) -> Role:
         return Role(
-            "CfCustomResourceFacebookCognitoLambdaRole",
+            "CfCustomResourceGitCommitLambdaRole",
             Path="/",
             Policies=[Policy(
-                PolicyName="CfCustomResourceFacebookCognitoLambdaPolicy",
+                PolicyName="CfCustomResourceGitCommitLambdaPolicy",
                 PolicyDocument={
                     "Version": "2012-10-17",
                     "Statement": [{
@@ -39,9 +38,7 @@ class CognitoFacebookService(AbstractCustomService):
                         "Effect": "Allow"
                     }, {
                         "Action": [
-                            "cognito-idp:CreateIdentityProvider",
-                            "cognito-idp:UpdateIdentityProvider",
-                            "cognito-idp:DeleteIdentityProvider",
+                            "codecommit:CreateCommit",
                         ],
                         "Resource": "*",
                         "Effect": "Allow"

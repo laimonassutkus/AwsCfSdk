@@ -5,13 +5,15 @@
 
 set -e
 
-# Extract main CLI arguments.
-ENVIRONMENT="$1"; shift;
-PROJECT_PATH="$1"; shift;
+# The environment of the python project. Usually it is either dev or prod.
+ENVIRONMENT=$1; shift;
+# Path to the project to build (e.g. /path/to/my/project).
+PROJECT_PATH=$1; shift;
+# Dynamically generated root working path (e.g. /tmp/dir/path).
+ROOT_PATH=$1; shift;
+# A path to a build file (e.g. /tmp/build.zip).
+BUILD_PATH=$1; shift;
 
-# Specify various working paths.
-ROOT_PATH="/tmp/aws-infrastructure-sdk/lambda/deployment"
-BUILD_PATH=${ROOT_PATH}"/package.zip"
 INSTALL_PATH=${ROOT_PATH}"/install"
 VENV_PATH=${ROOT_PATH}"/venv"
 
