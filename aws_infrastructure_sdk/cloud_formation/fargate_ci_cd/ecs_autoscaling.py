@@ -5,7 +5,19 @@ from troposphere import Template, Ref, GetAtt, Join
 
 
 class Autoscaling:
-    def __init__(self, prefix: str, cluster_name: str, service_name: str, service_resource_name: str, ):
+    """
+    Class that creates an ECS autoscaling.
+    """
+    def __init__(self, prefix: str, cluster_name: str, service_name: str, service_resource_name: str):
+        """
+        Container.
+
+        :param prefix: Prefix for newly created resources.
+        :param cluster_name: The name of the ECS cluster.
+        :param service_name: The name of the ECS service.
+        :param service_resource_name: The name of the ECS service resource to specify the dependency. Autoscaling
+        can not be created until an ECS service is created.
+        """
         self.autoscaling_role = Role(
             prefix + 'FargateEcsAutoscalingRole',
             Path='/',
@@ -73,6 +85,13 @@ class Autoscaling:
         )
 
     def add(self, template: Template):
+        """
+        Adds all created resources to a template.
+
+        :param template: Template to which resources should be added.
+
+        :return: No return.
+        """
         template.add_resource(self.autoscaling_role)
         template.add_resource(self.scalable_target)
         template.add_resource(self.scaling_policy)

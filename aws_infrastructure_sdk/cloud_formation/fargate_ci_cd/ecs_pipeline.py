@@ -1,18 +1,28 @@
+from typing import Union
+from troposphere.ecs import Service
+from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.ecs_service import CustomEcsService
+from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.git_commit import CustomGitCommit
+from aws_infrastructure_sdk.cloud_formation.types import AwsRef
 from troposphere.awslambda import Function
 from troposphere.codecommit import Repository as GitRepository
 from troposphere.ecr import Repository as EcrRepository
 from troposphere.codedeploy import Application
 from troposphere.elasticloadbalancingv2 import TargetGroup, Listener
 from troposphere.iam import Role, Policy
-from troposphere import Template, GetAtt, Ref
+from troposphere import Template, GetAtt, Ref, Output, Join
 from troposphere.codepipeline import *
 from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.deployment_group import CustomDeploymentGroup
 
 
 class EcsPipeline:
+    """
+    Class which creates infrastructure for CI/CD Blue/Green Ecs Fargate deployment.
+    """
     def __init__(
             self,
             prefix: str,
+            aws_account_id: str,
+            aws_region: str,
             custom_deployment_group_lambda_function: Function,
             main_target_group: TargetGroup,
             deployments_target_group: TargetGroup,
@@ -20,8 +30,35 @@ class EcsPipeline:
             deployments_listener: Listener,
             ecs_service_name: str,
             ecs_cluster_name: str,
-            artifact_builds_s3: str,
+            artifact_builds_s3: AwsRef,
+            task_def: AwsRef,
+            app_spec: AwsRef,
+            custom_git_commit_lambda_function: Function,
+            depends_on_ecs_service: Union[CustomEcsService, Service]
     ):
+        """
+        Constructor.
+
+        :param prefix: A prefix for newly created resources.
+        :param aws_account_id: An account id under which a CF stack is running.
+        :param aws_region: Region in which the CF stack is running.
+        :param custom_deployment_group_lambda_function: A custom CF resource backend function which creates
+        a deployment group resource. Before executing the stack, the function must be available.
+        :param main_target_group: A target group to which a loadbalancer is forwarding a received production traffic.
+        :param deployments_target_group: A target group to which a loadbalancer is forwarding a received test traffic.
+        :param main_listener: A listener which receives incoming traffic and forwards it to a target group.
+        :param deployments_listener: A listener which receives incoming traffic and forwards it to a target group.
+        This listener is used for blue/green deployment.
+        :param ecs_service_name: The name of the ECS service.
+        :param ecs_cluster_name: The name of ECS cluster in which the ECS service is.
+        :param artifact_builds_s3: A S3 bucket to which built artifacts are written.
+        :param task_def: Task definition object defining the parameters for a newly deployed container.
+        :param app_spec: App specification object defining the ecs service modifications.
+        :param custom_git_commit_lambda_function: A custom CF resource backend function which creates a configuration
+        commit to a newly created git repository. The function commits task definition and app specification objects.
+        Before executing the stack, the function must be available.
+        :param depends_on_ecs_service: Ecs service itself on which the pipeline depends.
+        """
         self.deployment_group_role = Role(
             prefix + 'FargateEcsDeploymentGroupRole',
             Path='/',
@@ -45,7 +82,8 @@ class EcsPipeline:
                             "sns:Publish",
                             "s3:GetObject",
                             "s3:GetObjectMetadata",
-                            "s3:GetObjectVersion"
+                            "s3:GetObjectVersion",
+                            "iam:PassRole"
                         ],
                         "Resource": "*",
                         "Effect": "Allow"
@@ -65,6 +103,7 @@ class EcsPipeline:
             ]},
         )
 
+        # TODO needs permissions fixing.
         self.pipeline_role = Role(
             prefix + 'FargateEcsPipelineRole',
             Path='/',
@@ -147,9 +186,40 @@ class EcsPipeline:
             RepositoryName=prefix.lower()
         )
 
+        # Commit configuration files to a git repository from which a code-pipeline will read later.
+        self.commit = CustomGitCommit(
+            prefix + 'FargateEcsDeploymentConfig',
+            ServiceToken=GetAtt(custom_git_commit_lambda_function, 'Arn'),
+            RepositoryName=self.git_repository.RepositoryName,
+            BranchName='master',
+            CommitMessage='Initial appspec and taskdef files.',
+            PutFiles=[
+                {
+                    'filePath': 'taskdef.json',
+                    'fileMode': 'NORMAL',
+                    'fileContent': task_def,
+                }, {
+                    'filePath': 'appspec.yaml',
+                    'fileMode': 'NORMAL',
+                    'fileContent': app_spec,
+                }
+            ],
+            DependsOn=[self.git_repository.title]
+        )
+
         self.ecr_repository = EcrRepository(
             prefix + 'FargateEcsEcrRepository',
             RepositoryName=prefix.lower()
+        )
+
+        self.ecr_repository_output = Output(
+            prefix + 'FargateEcsEcrOutput',
+            Description='Ecr endpoint to tag/push/pull docker images.',
+            Value=Join(delimiter='', values=[
+                f'{aws_account_id}.dkr.ecr.{aws_region}.amazonaws.com/',
+                Ref(self.ecr_repository),
+                f':latest',
+            ])
         )
 
         self.application = Application(
@@ -211,9 +281,11 @@ class EcsPipeline:
                     'serviceName': ecs_service_name,
                     'clusterName': ecs_cluster_name
                 },
-            ]
+            ],
+            DependsOn=[depends_on_ecs_service.title]
         )
 
+        # Create a pipeline which deploys from ECR to ECS.
         self.pipeline = Pipeline(
             prefix + 'FargateEcsPipeline',
             ArtifactStore=ArtifactStore(
@@ -226,6 +298,7 @@ class EcsPipeline:
                 Stages(
                     Name='SourceStage',
                     Actions=[
+                        # Source the image from ECR.
                         Actions(
                             Name='SourceEcrAction',
                             ActionTypeId=ActionTypeId(
@@ -244,6 +317,7 @@ class EcsPipeline:
                             },
                             RunOrder='1'
                         ),
+                        # Source configuration from git repository.
                         Actions(
                             Name='SourceCodeCommitAction',
                             ActionTypeId=ActionTypeId(
@@ -268,6 +342,7 @@ class EcsPipeline:
                 Stages(
                     Name='DeployStage',
                     Actions=[
+                        # Initiate the deployment.
                         Actions(
                             Name='DeployAction',
                             ActionTypeId=ActionTypeId(
@@ -301,10 +376,26 @@ class EcsPipeline:
                         )
                     ]
                 )
+            ],
+            # The pipeline can not be created until applications, deployment groups, git repositories and ecs
+            # services are created.
+            DependsOn=[
+                self.application.title,
+                self.deployment_group.title,
+                self.git_repository.title,
+                self.ecr_repository.title
             ]
         )
 
     def add(self, template: Template):
+        """
+        Adds all created resources to a template.
+
+        :param template: Template to which resources should be added.
+
+        :return: No return.
+        """
+        template.add_resource(self.commit)
         template.add_resource(self.git_repository)
         template.add_resource(self.ecr_repository)
         template.add_resource(self.deployment_group_role)
@@ -312,3 +403,5 @@ class EcsPipeline:
         template.add_resource(self.application)
         template.add_resource(self.deployment_group)
         template.add_resource(self.pipeline)
+
+        template.add_output(self.ecr_repository_output)

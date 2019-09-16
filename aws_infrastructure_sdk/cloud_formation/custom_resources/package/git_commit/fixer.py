@@ -20,6 +20,14 @@ class Fixer:
         # Make sure to convert uppercase first char to a lowercase.
         self.__kwargs = {self.__inverse_capitalize(key): value for key, value in self.__kwargs.items()}
 
+        # File contents must be bytes.
+        if self.__kwargs.get('putFiles'):
+            for put_file in self.__kwargs['putFiles']:
+                if put_file.get('fileContent'):
+                    file_content = put_file['fileContent']
+                    if isinstance(file_content, str):
+                        put_file['fileContent'] = file_content.encode()
+
         return self
 
     @staticmethod

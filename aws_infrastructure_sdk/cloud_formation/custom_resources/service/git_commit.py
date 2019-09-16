@@ -39,6 +39,7 @@ class GitCommitService(AbstractCustomService):
                     }, {
                         "Action": [
                             "codecommit:CreateCommit",
+                            "codecommit:GetBranch",
                         ],
                         "Resource": "*",
                         "Effect": "Allow"

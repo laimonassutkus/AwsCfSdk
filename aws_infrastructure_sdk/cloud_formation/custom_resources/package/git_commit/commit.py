@@ -1,6 +1,7 @@
 import boto3
 
 from typing import Any, Dict
+from botocore.exceptions import ClientError
 
 client = boto3.client('codecommit')
 
@@ -21,5 +22,15 @@ class Commit:
             setFileModes=kwargs.get('setFileModes'),
         )
 
-        kwargs = {key: value for key, value in kwargs.items() if key and value}
-        return client.create_commit(**kwargs)
+        try:
+            kwargs = {key: value for key, value in kwargs.items() if key and value}
+            return client.create_commit(**kwargs)
+        except ClientError as ex:
+            if ex.response['Error']['Code'] == 'ParentCommitIdRequiredException':
+                latest_commit_id = client.get_branch(
+                    repositoryName=kwargs.get('repositoryName'),
+                    branchName=kwargs.get('branchName')
+                )['branch']['commitId']
+
+                kwargs['parentCommitId'] = latest_commit_id
+                return client.create_commit(**kwargs)

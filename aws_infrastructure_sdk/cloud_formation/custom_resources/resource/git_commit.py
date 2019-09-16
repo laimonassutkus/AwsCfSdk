@@ -2,7 +2,7 @@ from troposphere import AWSObject
 from troposphere.validators import boolean
 
 
-class CustomEcsService(AWSObject):
+class CustomGitCommit(AWSObject):
     resource_type = "Custom::GitCommit"
 
     props = {
