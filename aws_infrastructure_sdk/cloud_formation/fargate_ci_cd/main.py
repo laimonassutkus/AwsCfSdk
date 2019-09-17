@@ -220,6 +220,7 @@ class Main:
         # Create main fargate ecs service.
         self.ecs = Ecs(
             prefix=prefix,
+            aws_region=aws_account_params.region,
             environment=container_params.environment,
             cpu=compute_params.cpu,
             ram=compute_params.ram,

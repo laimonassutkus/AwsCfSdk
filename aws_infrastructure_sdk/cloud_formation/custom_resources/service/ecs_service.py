@@ -41,6 +41,7 @@ class EcsServiceService(AbstractCustomService):
                             "ecs:CreateService",
                             "ecs:UpdateService",
                             "ecs:DeleteService",
+                            "iam:PassRole"
                         ],
                         "Resource": "*",
                         "Effect": "Allow"

@@ -1,4 +1,5 @@
 from typing import List, Dict
+from troposphere.logs import LogGroup
 from aws_infrastructure_sdk.cloud_formation.types import AwsRef
 from troposphere.awslambda import Function
 from troposphere.ec2 import SecurityGroup
@@ -16,6 +17,7 @@ class Ecs:
     def __init__(
             self,
             prefix: str,
+            aws_region: str,
             cpu: str,
             ram: str,
             environment: Dict[str, AwsRef],
@@ -33,6 +35,7 @@ class Ecs:
         Constructor.
 
         :param prefix: A prefix for newly created resources.
+        :param aws_region: A region in which resources are put.
         :param cpu: Cpu points for the deployed container. 1 CPU = 1024 Cpu points.
         :param ram: Memory for the deployed container. 1 GB Ram = 1024.
         :param environment: Environment that will be passed to a running container.
@@ -49,6 +52,7 @@ class Ecs:
         :param depends_on_listeners: Before creating ecs service, these listeners must be created.
         """
         self.prefix = prefix
+        self.aws_region = aws_region
         self.environment = environment
         self.cpu = cpu
         self.ram = ram
@@ -88,6 +92,11 @@ class Ecs:
             ]},
         )
 
+        self.log_group = LogGroup(
+            prefix + 'FargateEcsLogGroup',
+            LogGroupName=f'/aws/ecs/fargate/{prefix}'
+        )
+
         self.cluster = Cluster(
             prefix + 'FargateEcsCluster',
             ClusterName=prefix + 'FargateEcsCluster'
@@ -96,6 +105,7 @@ class Ecs:
         self.task = TaskDefinition(
             prefix + 'FargateEcsTaskDefinition',
             RequiresCompatibilities=['FARGATE'],
+            ExecutionRoleArn=GetAtt(self.task_execution_role, 'Arn'),
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name=container_name,
@@ -105,7 +115,17 @@ class Ecs:
                         PortMapping(
                             ContainerPort=80
                         )
-                    ]
+                    ],
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            # Use Ref to set a dependency to a log group.
+                            # Or use "depends on" attribute.
+                            'awslogs-group': Ref(self.log_group),
+                            'awslogs-region': aws_region,
+                            'awslogs-stream-prefix': prefix
+                        }
+                    )
                 )
             ],
             Cpu=cpu,
@@ -170,28 +190,38 @@ class Ecs:
         definition = Join(delimiter='\n', values=[
             '{',
             Join(delimiter='', values=['    "executionRoleArn": ', '"', GetAtt(self.task_execution_role, "Arn"), '"', ',']),
-            f'    "containerDefinitions": [',
+            '    "containerDefinitions": [',
             '        {',
-            f'            "name": "{self.container_name}",',
-            f'            "image": "<IMAGE1_NAME>",',
-            f'            "essential": true,',
+            '            "name": "{}",'.format(self.container_name),
+            '            "image": "<IMAGE1_NAME>",',
+            '            "essential": true,',
             environment,
-            f'            "portMappings": [',
+            '            "portMappings": [',
             '                {',
-            f'                   "hostPort": {self.container_port},',
-            f'                   "protocol": "tcp",',
-            f'                   "containerPort": {self.container_port}',
+            '                   "hostPort": {},'.format(self.container_port),
+            '                   "protocol": "tcp",',
+            '                   "containerPort": {}'.format(self.container_port),
             '                }',
-            f'            ]',
+            '            ],',
+            '            "logConfiguration": [',
+            '                {',
+            '                   "logDriver": "awslogs",',
+            '                   "options": {',
+            '                       "awslogs-group": "{}",'.format(self.log_group.LogGroupName),
+            '                       "awslogs-region": "{}",'.format(self.aws_region),
+            '                       "awslogs-stream-prefix": "{}"'.format(self.prefix),
+            '                   }',
+            '                }',
+            '            ]',
             '        }',
-            f'    ],',
-            f'    "requiresCompatibilities": [',
-            f'        "FARGATE"',
-            f'    ],',
-            f'    "networkMode": "awsvpc",',
-            f'    "cpu": "{self.cpu}",',
-            f'    "memory": "{self.ram}",',
-            f'    "family": "{self.prefix.lower()}"',
+            '    ],',
+            '    "requiresCompatibilities": [',
+            '        "FARGATE"',
+            '    ],',
+            '    "networkMode": "awsvpc",',
+            '    "cpu": "{}",'.format(self.cpu),
+            '    "memory": "{}",'.format(self.ram),
+            '    "family": "{}"'.format(self.prefix.lower()),
             '}'
         ])
 
@@ -226,6 +256,7 @@ class Ecs:
 
         :return: No return.
         """
+        template.add_resource(self.log_group)
         template.add_resource(self.cluster)
         template.add_resource(self.task)
         template.add_resource(self.service)
