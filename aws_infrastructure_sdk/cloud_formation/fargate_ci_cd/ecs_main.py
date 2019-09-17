@@ -111,6 +111,8 @@ class Ecs:
                     Name=container_name,
                     # Create dummy image, since container definitions list can not be empty.
                     Image='nginx:latest',
+                    # For task definitions that use the awsvpc network mode, you should only specify the containerPort.
+                    # The hostPort can be left blank or it must be the same value as the containerPort.
                     PortMappings=[
                         PortMapping(
                             ContainerPort=80
@@ -196,10 +198,10 @@ class Ecs:
             '            "image": "<IMAGE1_NAME>",',
             '            "essential": true,',
             environment,
+            # For task definitions that use the awsvpc network mode, you should only specify the containerPort.
+            # The hostPort can be left blank or it must be the same value as the containerPort.
             '            "portMappings": [',
             '                {',
-            '                   "hostPort": {},'.format(self.container_port),
-            '                   "protocol": "tcp",',
             '                   "containerPort": {}'.format(self.container_port),
             '                }',
             '            ],',
