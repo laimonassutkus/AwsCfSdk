@@ -1,6 +1,6 @@
 from typing import List
 from troposphere.certificatemanager import Certificate
-from troposphere.ec2 import SecurityGroup
+from troposphere.ec2 import SecurityGroup, Subnet, VPC
 from troposphere.elasticloadbalancingv2 import TargetGroup, LoadBalancer, Listener, Action, RedirectConfig, Certificate as LBCertificate
 from troposphere import Template, Ref, Output, GetAtt
 
@@ -18,7 +18,8 @@ class Loadbalancing:
             self,
             prefix: str,
             lb_security_groups: List[SecurityGroup],
-            subnet_ids: List[str], vpc_id: str,
+            subnets: List[Subnet],
+            vpc: VPC,
             desired_domain_name: str
     ):
         """
@@ -28,8 +29,8 @@ class Loadbalancing:
         :param lb_security_groups: Security groups to attach to a loadbalancer. NOTE! when passing loadbalancer
         security groups - make sure the loadbalancer can communicate through ci/cd blue/green deployments
         opened ports. Usually they are 8000 and 44300.
-        :param subnet_ids: Subnets in which loadbalancer can exist.
-        :param vpc_id: Virtual private cloud id in which target groups and a loadbalancer exist.
+        :param subnets: Subnets in which loadbalancer can exist.
+        :param vpc: Virtual private cloud in which target groups and a loadbalancer exist.
         :param desired_domain_name: Domain name for using https.
         """
         # If your service's task definition uses the awsvpc network mode
@@ -53,7 +54,7 @@ class Loadbalancing:
             Name=prefix + 'FargateEcsTargetGroup1',
             Port=self.TARGET_GROUP_PORT,
             Protocol='HTTP',
-            VpcId=vpc_id,
+            VpcId=Ref(vpc),
             TargetType=self.target_type
         )
 
@@ -64,13 +65,13 @@ class Loadbalancing:
             Name=prefix + 'FargateEcsTargetGroup2',
             Port=self.TARGET_GROUP_PORT,
             Protocol='HTTP',
-            VpcId=vpc_id,
+            VpcId=Ref(vpc),
             TargetType=self.target_type
         )
 
         self.load_balancer = LoadBalancer(
             prefix + 'FargateEcsLoadBalancer',
-            Subnets=subnet_ids,
+            Subnets=[Ref(sub) for sub in subnets],
             SecurityGroups=[Ref(group) for group in lb_security_groups],
             Name=prefix + 'FargateEcsLoadBalancer',
             Scheme='internet-facing',

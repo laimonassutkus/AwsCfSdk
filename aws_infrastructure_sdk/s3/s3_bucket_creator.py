@@ -1,3 +1,5 @@
+from botocore.exceptions import ClientError
+
 from aws_infrastructure_sdk.s3.s3_abstract_action import AbstractS3Action
 
 
@@ -26,12 +28,18 @@ class S3BucketCreator(AbstractS3Action):
         if not exists:
             self.get_logger().info('Bucket does not exist. Creating {}...'.format(self.bucket_name))
 
-            self.s3_client.create_bucket(
-                Bucket=self.bucket_name,
-                ACL='private',
-                CreateBucketConfiguration={
-                    'LocationConstraint': self.region
-                }
-            )
+            try:
+                self.s3_client.create_bucket(
+                    Bucket=self.bucket_name,
+                    ACL='private',
+                    CreateBucketConfiguration={
+                        'LocationConstraint': self.region
+                    }
+                )
+            except ClientError as ex:
+                if ex.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
+                    self.get_logger().info('Bucket {} already exists.'.format(self.bucket_name))
+                else:
+                    raise
         else:
             self.get_logger().info('Bucket {} already exists.'.format(self.bucket_name))

@@ -2,7 +2,7 @@ from typing import List, Dict
 from troposphere.logs import LogGroup
 from aws_infrastructure_sdk.cloud_formation.custom_resources.service.ecs_service import EcsServiceService
 from aws_infrastructure_sdk.cloud_formation.types import AwsRef
-from troposphere.ec2 import SecurityGroup
+from troposphere.ec2 import SecurityGroup, Subnet
 from troposphere.elasticloadbalancingv2 import TargetGroup, Listener
 from troposphere import Template, Ref, GetAtt, Join
 from troposphere.ecs import *
@@ -25,7 +25,7 @@ class Ecs:
             container_port: int,
             target_group: TargetGroup,
             security_groups: List[SecurityGroup],
-            subnet_ids: List[str],
+            subnets: List[Subnet],
             depends_on_loadbalancers: List[LoadBalancer] = [],
             depends_on_target_groups: List[TargetGroup] = [],
             depends_on_listeners: List[Listener] = []
@@ -43,7 +43,7 @@ class Ecs:
         :param target_group: A main target group to which a loadbalancer will forward traffic. Also, the newly
         created container will be associated with this group.
         :param security_groups: Container security groups restricting network traffic.
-        :param subnet_ids: Subnet id in which the newly created container can be placed.
+        :param subnets: Subnets in which the newly created container can be placed.
         :param depends_on_loadbalancers: Before creating ecs service, these loadbalancers must be created.
         :param depends_on_target_groups: Before creating ecs service, these target groups must be created.
         :param depends_on_listeners: Before creating ecs service, these listeners must be created.
@@ -151,7 +151,7 @@ class Ecs:
             LaunchType='FARGATE',
             NetworkConfiguration={
                 'awsvpcConfiguration': {
-                    'subnets': subnet_ids,
+                    'subnets': [Ref(sub) for sub in subnets],
                     'securityGroups': [Ref(sub) for sub in security_groups],
                     'assignPublicIp': 'ENABLED'
                 }

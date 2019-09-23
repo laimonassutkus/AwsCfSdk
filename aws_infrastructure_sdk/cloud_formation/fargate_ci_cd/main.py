@@ -1,6 +1,8 @@
 from typing import List, Dict
 from troposphere import Template
-from troposphere.ec2 import SecurityGroup
+from troposphere.ec2 import SecurityGroup, Subnet, VPC
+from troposphere.s3 import Bucket
+
 from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_autoscaling import Autoscaling
 from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_loadbalancer import Loadbalancing
 from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_main import Ecs
@@ -20,7 +22,7 @@ class EcsParams:
             container_port: int,
             container_environment: Dict[str, AwsRef],
             ecs_security_groups: List[SecurityGroup],
-            ecs_subnet_ids: List[AwsRef]
+            ecs_subnets: List[Subnet]
     ) -> None:
         """
         Constructor.
@@ -31,7 +33,7 @@ class EcsParams:
         :param container_port: An open container port through which a loadbalancer can communicate.
         :param container_environment: Environment that will be passed to a running container.
         :param ecs_security_groups: Security groups for ecs service in which containers are placed.
-        :param ecs_subnet_ids: Subnet ids to which new containers will be deployed.
+        :param ecs_subnets: Subnets to which new containers will be deployed.
         """
         self.container_name = container_name
         self.container_cpu = container_cpu
@@ -39,28 +41,28 @@ class EcsParams:
         self.container_port = container_port
         self.container_environment = container_environment
         self.ecs_security_groups = ecs_security_groups
-        self.ecs_subnet_ids = ecs_subnet_ids
+        self.ecs_subnets = ecs_subnets
 
 
 class LoadBalancerParams():
-    def __init__(self, subnet_ids: List[AwsRef], security_groups: List[SecurityGroup], dns: str):
+    def __init__(self, subnets: List[Subnet], security_groups: List[SecurityGroup], dns: str):
         """
         Constructor.
 
-        :param subnet_ids: Subnet ids in which a newly created loadbalancer can operate.
+        :param subnet: Subnets in which a newly created loadbalancer can operate.
         :param dns: A domain name for a loadbalancer. E.g. myweb.com. This is used to issue a new
         certificate in order a loadbalancer can use HTTPS connections.
         """
         self.dns = dns
         self.security_groups = security_groups
-        self.lb_subnet_ids = subnet_ids
+        self.lb_subnets = subnets
 
 
 class PipelineParams:
     """
     Parameters class which specifies various parameters for ci/cd pipeline.
     """
-    def __init__(self, artifact_builds_bucket: AwsRef):
+    def __init__(self, artifact_builds_bucket: Bucket):
         """
         Constructor.
 
@@ -89,7 +91,7 @@ class Main:
             prefix: str,
             region: str,
             account_id: str,
-            vpc_id: AwsRef,
+            vpc: VPC,
             lb_params: LoadBalancerParams,
             ecs_params: EcsParams,
             pipeline_params: PipelineParams,
@@ -100,7 +102,7 @@ class Main:
         :param prefix: The prefix for all newly created resources. E.g. Wordpress.
         :param region: The region where resources and the stack are deployed.
         :param account_id: The id of the account which executes this stack.
-        :param vpc_id: Id of a virtual private cloud (VPC).
+        :param vpc: Virtual private cloud (VPC).
         :param lb_params: Loadbalancer parameters.
         :param ecs_params: Compute power parameters for newly deployed container.
         :param pipeline_params: Parameters for a ci/cd pipeline.
@@ -108,9 +110,9 @@ class Main:
         # Create a loadbalancer to which an ecs service will attach.
         self.load_balancing = Loadbalancing(
             prefix=prefix,
-            subnet_ids=lb_params.lb_subnet_ids,
+            subnets=lb_params.lb_subnets,
             lb_security_groups=lb_params.security_groups,
-            vpc_id=vpc_id,
+            vpc=vpc,
             desired_domain_name=lb_params.dns
         )
 
@@ -125,7 +127,7 @@ class Main:
             container_port=ecs_params.container_port,
             target_group=self.load_balancing.target_group_1_http,
             security_groups=ecs_params.ecs_security_groups,
-            subnet_ids=ecs_params.ecs_subnet_ids,
+            subnets=ecs_params.ecs_subnets,
             # Ecs can not be created until a loadbalancer is created.
             depends_on_loadbalancers=[self.load_balancing.load_balancer],
             # Ecs can not be created until target groups are created.
@@ -157,15 +159,14 @@ class Main:
             deployments_target_group=self.load_balancing.target_group_2_http,
             main_listener=self.load_balancing.listener_https_1,
             deployments_listener=self.load_balancing.listener_https_2,
-            ecs_service_name=self.ecs.service.ServiceName,
-            ecs_cluster_name=self.ecs.cluster.ClusterName,
+            ecs_service=self.ecs.service,
+            ecs_cluster=self.ecs.cluster,
             artifact_builds_s3=pipeline_params.artifact_builds_bucket,
             task_def=self.ecs.create_task_def(),
             app_spec=self.ecs.create_appspec(),
             aws_account_id=account_id,
             aws_region=region,
             # Pipeline can not be created until the ecs service itself is created.
-            depends_on_ecs_service=self.ecs.service
         )
 
     def add(self, template: Template):

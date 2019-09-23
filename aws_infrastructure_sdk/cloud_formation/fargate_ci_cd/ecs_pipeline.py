@@ -1,5 +1,6 @@
 from typing import Union
-from troposphere.ecs import Service
+from troposphere.ecs import Service, Cluster
+from troposphere.s3 import Bucket
 from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.ecs_service import CustomEcsService
 from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.git_commit import CustomGitCommit
 from aws_infrastructure_sdk.cloud_formation.custom_resources.service.deployment_group import DeploymentGroupService
@@ -28,12 +29,11 @@ class EcsPipeline:
             deployments_target_group: TargetGroup,
             main_listener: Listener,
             deployments_listener: Listener,
-            ecs_service_name: str,
-            ecs_cluster_name: str,
-            artifact_builds_s3: AwsRef,
+            ecs_service: Union[CustomEcsService, Service],
+            ecs_cluster: Cluster,
+            artifact_builds_s3: Bucket,
             task_def: AwsRef,
             app_spec: AwsRef,
-            depends_on_ecs_service: Union[CustomEcsService, Service]
     ):
         """
         Constructor.
@@ -46,12 +46,11 @@ class EcsPipeline:
         :param main_listener: A listener which receives incoming traffic and forwards it to a target group.
         :param deployments_listener: A listener which receives incoming traffic and forwards it to a target group.
         This listener is used for blue/green deployment.
-        :param ecs_service_name: The name of the ECS service.
-        :param ecs_cluster_name: The name of ECS cluster in which the ECS service is.
+        :param ecs_service: Ecs service to which create this pipeline.
+        :param ecs_cluster: ECS cluster in which the ECS service is.
         :param artifact_builds_s3: A S3 bucket to which built artifacts are written.
         :param task_def: Task definition object defining the parameters for a newly deployed container.
         :param app_spec: App specification object defining the ecs service modifications.
-        :param depends_on_ecs_service: Ecs service itself on which the pipeline depends.
         """
         self.deployment_group_role = Role(
             prefix + 'FargateEcsDeploymentGroupRole',
@@ -272,18 +271,20 @@ class EcsPipeline:
             },
             EcsServices=[
                 {
-                    'serviceName': ecs_service_name,
-                    'clusterName': ecs_cluster_name
+                    'serviceName': ecs_service.ServiceName,
+                    'clusterName': ecs_cluster.ClusterName
                 },
             ],
-            DependsOn=[depends_on_ecs_service.title]
+            DependsOn=[
+                ecs_service.title,
+            ]
         )
 
         # Create a pipeline which deploys from ECR to ECS.
         self.pipeline = Pipeline(
             prefix + 'FargateEcsPipeline',
             ArtifactStore=ArtifactStore(
-                Location=artifact_builds_s3,
+                Location=artifact_builds_s3.BucketName,
                 Type='S3'
             ),
             Name=prefix + 'FargateEcsPipeline',
@@ -374,10 +375,11 @@ class EcsPipeline:
             # The pipeline can not be created until applications, deployment groups, git repositories and ecs
             # services are created.
             DependsOn=[
+                artifact_builds_s3.title,
                 self.application.title,
                 self.deployment_group.title,
                 self.git_repository.title,
-                self.ecr_repository.title
+                self.ecr_repository.title,
             ]
         )
 
