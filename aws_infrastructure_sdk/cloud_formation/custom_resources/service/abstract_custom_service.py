@@ -1,15 +1,13 @@
 from abc import ABC, abstractmethod
+from aws_infrastructure_sdk.cloud_formation.types import AwsRef
 from troposphere import GetAtt, Template
 from troposphere.awslambda import Function, Code
 from troposphere.iam import Role
+from aws_infrastructure_sdk.cloud_formation.custom_resources.config import CF_CUSTOM_BUILDS_BUCKET
 
 
 class AbstractCustomService(ABC):
-    def __init__(self, cf_custom_resources_bucket: str, region: str, aws_profile_name: str):
-        self.cf_custom_resources_bucket = cf_custom_resources_bucket
-        self.region = region
-        self.aws_profile_name = aws_profile_name
-
+    def __init__(self):
         self.src = None
         self.lambda_handler = None
         self.lambda_runtime = None
@@ -22,6 +20,9 @@ class AbstractCustomService(ABC):
     def role(self) -> Role:
         pass
 
+    def service_token(self) -> AwsRef:
+        return GetAtt(self.function(), 'Arn')
+
     def function(self) -> Function:
         assert self.lambda_name
         assert self.lambda_handler
@@ -33,7 +34,7 @@ class AbstractCustomService(ABC):
         return Function(
             self.lambda_name,
             Code=Code(
-                S3Bucket=self.cf_custom_resources_bucket,
+                S3Bucket=CF_CUSTOM_BUILDS_BUCKET,
                 S3Key=self.lambda_name
             ),
             Handler=self.lambda_handler,

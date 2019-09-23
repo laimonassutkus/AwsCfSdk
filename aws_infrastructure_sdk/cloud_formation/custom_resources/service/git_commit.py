@@ -6,8 +6,8 @@ from troposphere.iam import Role, Policy
 
 
 class GitCommitService(AbstractCustomService):
-    def __init__(self, cf_custom_resources_bucket: str, region: str, aws_profile_name: str):
-        super().__init__(cf_custom_resources_bucket, region, aws_profile_name)
+    def __init__(self):
+        super().__init__()
 
         self.src = os.path.join(
             custom_root_dir,

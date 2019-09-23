@@ -1,7 +1,7 @@
 from typing import List, Dict
 from troposphere.logs import LogGroup
+from aws_infrastructure_sdk.cloud_formation.custom_resources.service.ecs_service import EcsServiceService
 from aws_infrastructure_sdk.cloud_formation.types import AwsRef
-from troposphere.awslambda import Function
 from troposphere.ec2 import SecurityGroup
 from troposphere.elasticloadbalancingv2 import TargetGroup, Listener
 from troposphere import Template, Ref, GetAtt, Join
@@ -23,7 +23,6 @@ class Ecs:
             environment: Dict[str, AwsRef],
             container_name: str,
             container_port: int,
-            custom_ecs_service_lambda_function: Function,
             target_group: TargetGroup,
             security_groups: List[SecurityGroup],
             subnet_ids: List[str],
@@ -41,8 +40,6 @@ class Ecs:
         :param environment: Environment that will be passed to a running container.
         :param container_name: The name that will be given to a newly deployed container.
         :param container_port: An open container port through which a loadbalancer can communicate.
-        :param custom_ecs_service_lambda_function: A custom CF resource lambda backend that creates an ecs service.
-        The function must be available before running the template.
         :param target_group: A main target group to which a loadbalancer will forward traffic. Also, the newly
         created container will be associated with this group.
         :param security_groups: Container security groups restricting network traffic.
@@ -139,7 +136,7 @@ class Ecs:
 
         self.service = CustomEcsService(
             prefix + 'FargateEcsService',
-            ServiceToken=GetAtt(custom_ecs_service_lambda_function, 'Arn'),
+            ServiceToken=EcsServiceService().service_token(),
             Cluster=Ref(self.cluster),
             ServiceName=prefix + 'FargateEcsService',
             TaskDefinition=Ref(self.task),

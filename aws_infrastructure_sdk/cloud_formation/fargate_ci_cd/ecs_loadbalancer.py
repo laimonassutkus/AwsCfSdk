@@ -4,7 +4,6 @@ from troposphere.ec2 import SecurityGroup
 from troposphere.elasticloadbalancingv2 import TargetGroup, LoadBalancer, Listener, Action, RedirectConfig, Certificate as LBCertificate
 from troposphere import Template, Ref, Output, GetAtt
 
-
 class Loadbalancing:
     """
     Class which creates a loadbalancer for ecs.
@@ -26,7 +25,9 @@ class Loadbalancing:
         Constructor.
 
         :param prefix: A prefix for resource names.
-        :param lb_security_groups: Security groups to attach to a loadbalancer.
+        :param lb_security_groups: Security groups to attach to a loadbalancer. NOTE! when passing loadbalancer
+        security groups - make sure the loadbalancer can communicate through ci/cd blue/green deployments
+        opened ports. Usually they are 8000 and 44300.
         :param subnet_ids: Subnets in which loadbalancer can exist.
         :param vpc_id: Virtual private cloud id in which target groups and a loadbalancer exist.
         :param desired_domain_name: Domain name for using https.

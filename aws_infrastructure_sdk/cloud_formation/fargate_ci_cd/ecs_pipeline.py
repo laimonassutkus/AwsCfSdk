@@ -2,8 +2,9 @@ from typing import Union
 from troposphere.ecs import Service
 from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.ecs_service import CustomEcsService
 from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.git_commit import CustomGitCommit
+from aws_infrastructure_sdk.cloud_formation.custom_resources.service.deployment_group import DeploymentGroupService
+from aws_infrastructure_sdk.cloud_formation.custom_resources.service.git_commit import GitCommitService
 from aws_infrastructure_sdk.cloud_formation.types import AwsRef
-from troposphere.awslambda import Function
 from troposphere.codecommit import Repository as GitRepository
 from troposphere.ecr import Repository as EcrRepository
 from troposphere.codedeploy import Application
@@ -23,7 +24,6 @@ class EcsPipeline:
             prefix: str,
             aws_account_id: str,
             aws_region: str,
-            custom_deployment_group_lambda_function: Function,
             main_target_group: TargetGroup,
             deployments_target_group: TargetGroup,
             main_listener: Listener,
@@ -33,7 +33,6 @@ class EcsPipeline:
             artifact_builds_s3: AwsRef,
             task_def: AwsRef,
             app_spec: AwsRef,
-            custom_git_commit_lambda_function: Function,
             depends_on_ecs_service: Union[CustomEcsService, Service]
     ):
         """
@@ -42,8 +41,6 @@ class EcsPipeline:
         :param prefix: A prefix for newly created resources.
         :param aws_account_id: An account id under which a CF stack is running.
         :param aws_region: Region in which the CF stack is running.
-        :param custom_deployment_group_lambda_function: A custom CF resource backend function which creates
-        a deployment group resource. Before executing the stack, the function must be available.
         :param main_target_group: A target group to which a loadbalancer is forwarding a received production traffic.
         :param deployments_target_group: A target group to which a loadbalancer is forwarding a received test traffic.
         :param main_listener: A listener which receives incoming traffic and forwards it to a target group.
@@ -54,9 +51,6 @@ class EcsPipeline:
         :param artifact_builds_s3: A S3 bucket to which built artifacts are written.
         :param task_def: Task definition object defining the parameters for a newly deployed container.
         :param app_spec: App specification object defining the ecs service modifications.
-        :param custom_git_commit_lambda_function: A custom CF resource backend function which creates a configuration
-        commit to a newly created git repository. The function commits task definition and app specification objects.
-        Before executing the stack, the function must be available.
         :param depends_on_ecs_service: Ecs service itself on which the pipeline depends.
         """
         self.deployment_group_role = Role(
@@ -189,7 +183,7 @@ class EcsPipeline:
         # Commit configuration files to a git repository from which a code-pipeline will read later.
         self.commit = CustomGitCommit(
             prefix + 'FargateEcsDeploymentConfig',
-            ServiceToken=GetAtt(custom_git_commit_lambda_function, 'Arn'),
+            ServiceToken=GitCommitService().service_token(),
             RepositoryName=self.git_repository.RepositoryName,
             BranchName='master',
             CommitMessage='Initial appspec and taskdef files.',
@@ -230,7 +224,7 @@ class EcsPipeline:
 
         self.deployment_group = CustomDeploymentGroup(
             prefix + 'FargateEcsDeploymentGroup',
-            ServiceToken=GetAtt(custom_deployment_group_lambda_function, 'Arn'),
+            ServiceToken=DeploymentGroupService().service_token(),
             ApplicationName=self.application.ApplicationName,
             DeploymentGroupName=prefix + 'FargateEcsDeploymentGroup',
             DeploymentConfigName='CodeDeployDefault.ECSAllAtOnce',
