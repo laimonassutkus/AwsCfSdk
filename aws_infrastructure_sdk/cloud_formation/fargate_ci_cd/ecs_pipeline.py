@@ -176,7 +176,7 @@ class EcsPipeline:
             RepositoryDescription=(
                 'Repository containing appspec and taskdef files for ecs code-deploy blue/green deployments.'
             ),
-            RepositoryName=prefix.lower()
+            RepositoryName=prefix.lower() + '_config'
         )
 
         # Commit configuration files to a git repository from which a code-pipeline will read later.

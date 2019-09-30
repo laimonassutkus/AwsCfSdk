@@ -6,7 +6,8 @@ from aws_infrastructure_sdk.lambdas.deployment.deployment_package import Deploym
 
 
 class CustomResourcesBuilder:
-    def __init__(self, region: str, profile: str):
+    def __init__(self, region: str, profile: str, suffix: str):
+        self.suffix = suffix
         self.region = region
         self.profile = profile
 
@@ -27,7 +28,7 @@ class CustomResourcesBuilder:
             environment='none',
             project_src_path=resource.src,
             lambda_name=resource.lambda_name,
-            s3_upload_bucket=CF_CUSTOM_BUILDS_BUCKET,
+            s3_upload_bucket=CF_CUSTOM_BUILDS_BUCKET.format(self.suffix),
             s3_bucket_region=self.region,
             aws_profile=self.profile,
             refresh_lambda=upload

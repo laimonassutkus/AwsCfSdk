@@ -1,0 +1,32 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      # This buildspec is used for python3.6, python3.7 runtime environment.
+      python: 3.7
+    commands:
+      # Create virtual env to install dependencies to.
+      - virtualenv /tmp/venv --python=python3.7
+      # Activate the virtualenv.
+      - . /tmp/venv/bin/activate
+      # Your project must contain a bash script called "install.sh". This is your main installation
+      # file where you specify all of the installation commands.
+      - chmod +x install.sh
+      - ./install.sh
+  build:
+    commands:
+      - mkdir /tmp/package/
+      # Copy everything under current dir (project source).
+      - cp -R . /tmp/package/
+      # Copy all dependencies.
+      - cp -R /tmp/venv/lib/python3.7/site-packages/. /tmp/package/
+      # Check if lambda package will fit into given size constraints.
+      - if [[ $(du /tmp/package/ -sb)  > 250000000 ]] ; then exit 27; else echo "File size will fit AWS Lambda function." ; fi
+artifacts:
+  files:
+    # Include all files recursively.
+    - '**/*'
+  base-directory: /tmp/package/
+  # Do not discard paths as we want to maintain project hierarchy.
+  discard-paths: no

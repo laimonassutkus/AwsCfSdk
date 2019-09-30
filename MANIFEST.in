@@ -3,3 +3,5 @@ include *.in
 
 recursive-include aws_infrastructure_sdk *.py
 recursive-include aws_infrastructure_sdk *.sh
+recursive-include aws_infrastructure_sdk *.template
+recursive-include aws_infrastructure_sdk *.yml

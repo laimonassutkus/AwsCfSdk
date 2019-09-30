@@ -1,0 +1,37 @@
+import os
+import boto3
+import botocore
+import logging
+import json
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+logger.info(f'Version of boto3 lib: {boto3.__version__}.')
+logger.info(f'Version of botocore lib: {botocore.__version__}.')
+
+
+def handler(event, *args, **kwargs):
+    logger.info(f'Got new event: {json.dumps(event)}.')
+    logger.info(f'Lambda under deployment function name: {os.environ["LAMBDA_FUNCTION_NAME"]}.')
+
+    client = boto3.client('lambda')
+
+    for record in event['Records']:
+        s3 = record['s3']
+
+        key = s3['object']['key']
+        bucket = s3['bucket']['name']
+
+        # Update function code.
+        response = client.update_function_code(
+            FunctionName=os.environ["LAMBDA_FUNCTION_NAME"],
+            S3Bucket=bucket,
+            S3Key=key,
+            Publish=True,
+        )
+
+        logger.info(
+            f'Successfully called "update function code" function. Response:\n'
+            f'{json.dumps(response, default=lambda o: "<not serializable>")}'
+        )
