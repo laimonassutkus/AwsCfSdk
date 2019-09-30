@@ -1,3 +1,5 @@
+import time
+
 from botocore.exceptions import ClientError
 
 from aws_infrastructure_sdk.s3.s3_abstract_action import AbstractS3Action
@@ -16,9 +18,11 @@ class S3BucketCreator(AbstractS3Action):
         self.region = region
         self.bucket_name = bucket_name
 
-    def create(self) -> None:
+    def create(self, recursion: bool = False) -> None:
         """
         Creates an S3 bucket if it does not exist.
+
+        :param recursion: Indicates if this function is in recursion.
 
         :return: No return.
         """
@@ -37,8 +41,14 @@ class S3BucketCreator(AbstractS3Action):
                     }
                 )
             except ClientError as ex:
+                if recursion is True:
+                    raise
+
                 if ex.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
                     self.get_logger().info('Bucket {} already exists.'.format(self.bucket_name))
+                elif ex.response['Error']['Code'] == 'OperationAborted':
+                    time.sleep(2)
+                    self.create(True)
                 else:
                     raise
         else:

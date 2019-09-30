@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
+from aws_infrastructure_sdk.cloud_formation.custom_resources.config_custom_builds_bucket import ConfigCustomBuildsBucket
 from aws_infrastructure_sdk.cloud_formation.types import AwsRef
 from troposphere import GetAtt, Template
 from troposphere.awslambda import Function, Code
 from troposphere.iam import Role
-from aws_infrastructure_sdk.cloud_formation.custom_resources.config import CF_CUSTOM_BUILDS_BUCKET
 
 
 class AbstractCustomService(ABC):
@@ -34,7 +34,7 @@ class AbstractCustomService(ABC):
         return Function(
             self.lambda_name,
             Code=Code(
-                S3Bucket=CF_CUSTOM_BUILDS_BUCKET,
+                S3Bucket=ConfigCustomBuildsBucket.get_builds_bucket_name(),
                 S3Key=self.lambda_name
             ),
             Handler=self.lambda_handler,
