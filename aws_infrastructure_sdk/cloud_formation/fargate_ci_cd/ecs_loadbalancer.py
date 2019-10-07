@@ -4,6 +4,7 @@ from troposphere.ec2 import SecurityGroup, Subnet, VPC
 from troposphere.elasticloadbalancingv2 import TargetGroup, LoadBalancer, Listener, Action, RedirectConfig, Certificate as LBCertificate
 from troposphere import Template, Ref, Output, GetAtt
 
+
 class Loadbalancing:
     """
     Class which creates a loadbalancer for ecs.

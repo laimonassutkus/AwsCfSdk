@@ -2,7 +2,6 @@ from typing import List, Dict
 from troposphere import Template
 from troposphere.ec2 import SecurityGroup, Subnet, VPC
 from troposphere.s3 import Bucket
-
 from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_autoscaling import Autoscaling
 from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_loadbalancer import Loadbalancing
 from aws_infrastructure_sdk.cloud_formation.fargate_ci_cd.ecs_main import Ecs

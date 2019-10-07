@@ -5,7 +5,7 @@ from io import BytesIO
 from aws_infrastructure_sdk.s3.s3_abstract_action import AbstractS3Action
 
 
-class Uploader(AbstractS3Action):
+class S3Uploader(AbstractS3Action):
     def __init__(self, bucket_name: str):
         super().__init__()
         self.bucket_name = bucket_name

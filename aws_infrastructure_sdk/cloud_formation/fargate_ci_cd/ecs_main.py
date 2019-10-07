@@ -1,13 +1,13 @@
 from typing import List, Dict
+from aws_cf_custom_resources.ecs_service.resource import CustomEcsService
+from aws_cf_custom_resources.ecs_service.service import EcsServiceService
 from troposphere.logs import LogGroup
-from aws_infrastructure_sdk.cloud_formation.custom_resources.service.ecs_service import EcsServiceService
 from aws_infrastructure_sdk.cloud_formation.types import AwsRef
 from troposphere.ec2 import SecurityGroup, Subnet
 from troposphere.elasticloadbalancingv2 import TargetGroup, Listener
 from troposphere import Template, Ref, GetAtt, Join
 from troposphere.ecs import *
 from troposphere.iam import Role, Policy
-from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.ecs_service import CustomEcsService
 
 
 class Ecs:

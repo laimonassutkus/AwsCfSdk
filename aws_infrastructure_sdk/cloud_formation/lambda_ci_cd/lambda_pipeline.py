@@ -1,3 +1,5 @@
+from aws_cf_custom_resources.s3_notification.resource import CustomS3Notification
+from aws_cf_custom_resources.s3_notification.service import S3NotificationService
 from troposphere import GetAtt, Template
 from troposphere.awslambda import Function, Permission
 from troposphere.codebuild import Project, Artifacts, Environment, Source
@@ -5,8 +7,6 @@ from troposphere.codecommit import Repository
 from troposphere.codepipeline import *
 from troposphere.iam import Role, Policy
 from troposphere.s3 import Bucket, PublicAccessBlockConfiguration
-from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.s3_notification import CustomS3Notification
-from aws_infrastructure_sdk.cloud_formation.custom_resources.service.s3_notification import S3NotificationService
 from aws_infrastructure_sdk.cloud_formation.lambda_ci_cd import lambda_ci_cd_root
 from aws_infrastructure_sdk.cloud_formation.lambda_ci_cd.deployment_lambda import DeploymentLambda
 

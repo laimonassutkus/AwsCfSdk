@@ -1,10 +1,11 @@
 from typing import Union
+from aws_cf_custom_resources.deployment_group.resource import CustomDeploymentGroup
+from aws_cf_custom_resources.deployment_group.service import DeploymentGroupService
+from aws_cf_custom_resources.ecs_service.resource import CustomEcsService
+from aws_cf_custom_resources.git_commit.resource import CustomGitCommit
+from aws_cf_custom_resources.git_commit.service import GitCommitService
 from troposphere.ecs import Service, Cluster
 from troposphere.s3 import Bucket
-from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.ecs_service import CustomEcsService
-from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.git_commit import CustomGitCommit
-from aws_infrastructure_sdk.cloud_formation.custom_resources.service.deployment_group import DeploymentGroupService
-from aws_infrastructure_sdk.cloud_formation.custom_resources.service.git_commit import GitCommitService
 from aws_infrastructure_sdk.cloud_formation.types import AwsRef
 from troposphere.codecommit import Repository as GitRepository
 from troposphere.ecr import Repository as EcrRepository
@@ -13,7 +14,6 @@ from troposphere.elasticloadbalancingv2 import TargetGroup, Listener
 from troposphere.iam import Role, Policy
 from troposphere import Template, GetAtt, Ref, Output, Join
 from troposphere.codepipeline import *
-from aws_infrastructure_sdk.cloud_formation.custom_resources.resource.deployment_group import CustomDeploymentGroup
 
 
 class EcsPipeline:

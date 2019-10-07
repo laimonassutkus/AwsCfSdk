@@ -1,9 +1,9 @@
 from typing import List, Dict, Any
+from aws_lambda.lambda_cf_creator import LambdaCfFunction
 from troposphere import Template
 from troposphere.ec2 import SecurityGroup, Subnet
 from troposphere.iam import Role
 from troposphere.s3 import Bucket
-from aws_infrastructure_sdk.cloud_formation.lambda_ci_cd.lambda_function import LambdaFunction
 from aws_infrastructure_sdk.cloud_formation.lambda_ci_cd.lambda_pipeline import LambdaPipeline
 
 
@@ -75,7 +75,7 @@ class Main:
             lambda_params: LambdaParams,
             pipeline_params: PipelineParams
     ):
-        self.function = LambdaFunction(
+        self.function = LambdaCfFunction(
             prefix=prefix,
             description=lambda_params.description,
             memory=lambda_params.memory,

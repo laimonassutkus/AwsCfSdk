@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 from aws_infrastructure_sdk.cloud_formation.stack.abstract_stack_action import AbstractStackAction
 from aws_infrastructure_sdk.s3.s3_bucket_creator import S3BucketCreator
-from aws_infrastructure_sdk.s3.uploader import Uploader
+from aws_infrastructure_sdk.s3.s3_uploader import S3Uploader
 
 
 class StackDeployer(AbstractStackAction):
@@ -32,7 +32,7 @@ class StackDeployer(AbstractStackAction):
         self.get_logger().info('Uploading cloudformation template to S3...')
 
         S3BucketCreator(cf_bucket_name, self.region).create()
-        s3_url = Uploader(cf_bucket_name).upload_bytes(template.encode('utf-8'))
+        s3_url = S3Uploader(cf_bucket_name).upload_bytes(template.encode('utf-8'))
 
         kwargs = {
             'StackName': self.cf_stack_name,

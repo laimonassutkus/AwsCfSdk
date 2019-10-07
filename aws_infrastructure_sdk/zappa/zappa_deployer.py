@@ -1,6 +1,5 @@
 import logging
-
-from aws_infrastructure_sdk.bash.command import BashCommand
+import subprocess
 
 logr = logging.getLogger(__name__)
 
@@ -41,8 +40,22 @@ class ZappaDeployer:
 
         try:
             logr.info('Deploying...')
-            success = BashCommand(deploy_command).run()
-            assert success, 'Deployment failed.'
+
+            process = subprocess.Popen(
+                deploy_command,
+                shell=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+
+            output, err = process.communicate()
+
+            if process.returncode != 0:
+                logr.info(output.decode())
+                logr.error(err.decode())
+
+            assert process.returncode == 0
             logr.info('Deployment successful.')
             return True
         except AssertionError as ex:

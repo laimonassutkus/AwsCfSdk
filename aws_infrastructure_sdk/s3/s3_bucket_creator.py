@@ -1,7 +1,6 @@
 import time
 
 from botocore.exceptions import ClientError
-
 from aws_infrastructure_sdk.s3.s3_abstract_action import AbstractS3Action
 
 

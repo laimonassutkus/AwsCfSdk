@@ -3,11 +3,10 @@ import shutil
 import logging
 
 from typing import Dict, Any
-from aws_infrastructure_sdk.bash.command import BashCommand
+from aws_lambda.lambda_env_updater import LambdaEnvUpdater
 from aws_infrastructure_sdk.cloud_formation.stack.api_gateway_describer import ApiGatewayDescriber
-from aws_infrastructure_sdk.git.git_clone import GitClone
-from aws_infrastructure_sdk.lambdas.env_updater import LambdaEnvUpdater
 from aws_infrastructure_sdk.s3.s3_bucket_deleter import S3BucketDeleter
+from aws_infrastructure_sdk.zappa.utils import run_bash, git_clone
 from aws_infrastructure_sdk.zappa.zappa_env_updater import ZappaEnvUpdater
 from aws_infrastructure_sdk.zappa.zappa_config import ZappaConfig
 
@@ -78,7 +77,7 @@ class ZappaDjangoDeploy:
         self.__clean()
 
         logr.info(f'Downloading {self.deployed_project_name_with_stage} project...')
-        GitClone(self.ssh_file_path).clone(self.project_git_url, self.DEFAULT_CLONE_PATH)
+        git_clone(self.project_git_url, self.DEFAULT_CLONE_PATH, self.ssh_file_path)
 
         logr.info(f'Updating {self.deployed_project_name_with_stage} zappa settings...')
         ZappaEnvUpdater(self.DEFAULT_CLONE_PATH).update(self.project_environment, self.zappa_environment)
@@ -139,7 +138,7 @@ class ZappaDjangoDeploy:
         )
 
         logr.info(f'Running tests for {self.deployed_project_name_with_stage}...')
-        success = BashCommand(test_command).run()
+        success = run_bash(test_command)
         assert success, 'Tests failed!'
         logr.info(f'Tests succeeded for {self.deployed_project_name_with_stage}!')
 
@@ -185,7 +184,7 @@ class ZappaDjangoDeploy:
             ))
 
         logr.info(f'Installing {self.deployed_project_name_with_stage} project...')
-        success = BashCommand(install_command).run()
+        success = run_bash(install_command)
         assert success, 'Installation failed!'
         logr.info('Installation succeeded!')
 
@@ -204,6 +203,6 @@ class ZappaDjangoDeploy:
         ).format(self.DEFAULT_CLONE_PATH, self.stage, self.stage)
 
         logr.info(f'Deploying {self.deployed_project_name_with_stage}...')
-        success = BashCommand(deploy_command).run()
+        success = run_bash(deploy_command)
         assert success, 'Deployment failed.'
         logr.info(f'Deployment for {self.deployed_project_name_with_stage} was successfull!')
