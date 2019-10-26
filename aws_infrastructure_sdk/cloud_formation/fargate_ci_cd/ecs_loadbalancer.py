@@ -1,7 +1,8 @@
-from typing import List
+from typing import List, Optional
 from troposphere.certificatemanager import Certificate
 from troposphere.ec2 import SecurityGroup, Subnet, VPC
-from troposphere.elasticloadbalancingv2 import TargetGroup, LoadBalancer, Listener, Action, RedirectConfig, Certificate as LBCertificate
+from troposphere.elasticloadbalancingv2 import TargetGroup, LoadBalancer, Listener, Action, RedirectConfig, \
+    Certificate as LBCertificate, Matcher
 from troposphere import Template, Ref, Output, GetAtt
 
 
@@ -21,7 +22,8 @@ class Loadbalancing:
             lb_security_groups: List[SecurityGroup],
             subnets: List[Subnet],
             vpc: VPC,
-            desired_domain_name: str
+            desired_domain_name: str,
+            healthy_http_codes: Optional[List[int]] = None
     ):
         """
         Constructor.
@@ -33,7 +35,12 @@ class Loadbalancing:
         :param subnets: Subnets in which loadbalancer can exist.
         :param vpc: Virtual private cloud in which target groups and a loadbalancer exist.
         :param desired_domain_name: Domain name for using https.
+        :param healthy_http_codes: The deployed instance is constantly pinged to determine if it is available
+        (healthy) or not. Specify a list of http codes that your service can return and should be treated as healthy.
         """
+        # By default a healthy http code is considered to be 200.
+        healthy_http_codes = healthy_http_codes or [200]
+
         # If your service's task definition uses the awsvpc network mode
         # (which is required for the Fargate launch type), you must choose ip as the target type,
         # not instance, when creating your target groups because
@@ -53,6 +60,9 @@ class Loadbalancing:
         self.target_group_1_http = TargetGroup(
             prefix + 'FargateEcsTargetGroup1',
             Name=prefix + 'FargateEcsTargetGroup1',
+            Matcher=Matcher(
+                HttpCode=','.join([str(code) for code in healthy_http_codes])
+            ),
             Port=self.TARGET_GROUP_PORT,
             Protocol='HTTP',
             VpcId=Ref(vpc),
@@ -64,6 +74,9 @@ class Loadbalancing:
         self.target_group_2_http = TargetGroup(
             prefix + 'FargateEcsTargetGroup2',
             Name=prefix + 'FargateEcsTargetGroup2',
+            Matcher=Matcher(
+                HttpCode=','.join([str(code) for code in healthy_http_codes])
+            ),
             Port=self.TARGET_GROUP_PORT,
             Protocol='HTTP',
             VpcId=Ref(vpc),

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 from troposphere import Template
 from troposphere.ec2 import SecurityGroup, Subnet, VPC
 from troposphere.s3 import Bucket
@@ -44,17 +44,26 @@ class EcsParams:
 
 
 class LoadBalancerParams():
-    def __init__(self, subnets: List[Subnet], security_groups: List[SecurityGroup], dns: str):
+    def __init__(
+            self,
+            subnets: List[Subnet],
+            security_groups: List[SecurityGroup],
+            dns: str,
+            healthy_http_codes: Optional[List[int]] = None
+    ):
         """
         Constructor.
 
         :param subnet: Subnets in which a newly created loadbalancer can operate.
         :param dns: A domain name for a loadbalancer. E.g. myweb.com. This is used to issue a new
         certificate in order a loadbalancer can use HTTPS connections.
+        :param healthy_http_codes: The deployed instance is constantly pinged to determine if it is available
+        (healthy) or not. Specify a list of http codes that your service can return and should be treated as healthy.
         """
         self.dns = dns
         self.security_groups = security_groups
         self.lb_subnets = subnets
+        self.healthy_http_codes = healthy_http_codes
 
 
 class PipelineParams:
@@ -112,7 +121,8 @@ class Main:
             subnets=lb_params.lb_subnets,
             lb_security_groups=lb_params.security_groups,
             vpc=vpc,
-            desired_domain_name=lb_params.dns
+            desired_domain_name=lb_params.dns,
+            healthy_http_codes=lb_params.healthy_http_codes
         )
 
         # Create main fargate ecs service.
